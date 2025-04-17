@@ -23,7 +23,7 @@ except ImportError as e:
 
 from deep_sort_realtime.deepsort_tracker import DeepSort
 import cv2
-import torch
+
 
 # 初始化模型和追踪器
 model = YOLOv10("models/yolov10n.pt")  # 请确保已下载权重文件
