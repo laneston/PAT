@@ -467,6 +467,55 @@ mark_missed()
    - others字段可存储任意数据，但需注意序列化和访问安全。
 
 
+# Tracker类
+
+```
+class Tracker:
+    """多目标跟踪器"""
+    def __init__(self, metric, max_iou_distance=0.7, max_age=30, n_init=3, ...):
+        # 初始化参数
+        self.today = today  # 跟踪ID日期标识
+        self.metric = metric  # 外观特征距离度量
+        self.max_iou_distance = 0.7  # IOU匹配阈值，高于此值的IOU认为不匹配
+        self.max_age = 30  # 最大丢失帧数，根据场景调整，长则轨迹保留更久但可能有噪声
+        self.n_init = 3  # 确认轨迹所需连续检测次数，新轨迹需稳定出现3次才确认，防止误检
+        self.kf = kalman_filter.KalmanFilter()  # Kalman滤波器
+        self.tracks = []  # 活跃轨迹列表
+```
+
+- ​参数说明​：
+  - metric：用于计算检测与轨迹外观相似度的距离度量（如余弦距离）。
+  - max_age：轨迹被删除前的最大丢失帧数。
+  - n_init：新轨迹需连续匹配N次检测才会被确认。
+
+ ## predict()
+
+- ​作用​：对每个轨迹进行Kalman滤波预测，预测目标位置和速度，状态向量​：通常包含 [x, y, 宽高比, 高度, vx, vy, vh]。
+- ​注意​：需在每个时间步的update()前调用。
+
+## update()
+
+- ​流程​：
+  - 日期变更时重置ID。
+  - 通过_match()进行检测-轨迹关联。
+  - 更新匹配轨迹状态，标记丢失轨迹，初始化新轨迹。
+  - 清理无效轨迹，更新外观特征模型。
+- ​注意​：detections需包含有效的特征向量。
+
+## _match()
+
+- ​策略​：
+  - 优先用级联匹配处理已确认轨迹。
+  - 剩余轨迹和检测用IOU匹配。
+- ​优势​：兼顾外观特征和运动模型。
+
+- 级联匹配​：优先匹配丢失时间短的轨迹，降低ID切换。
+- ​IOU匹配​：作为后备方案，处理外观特征失效的情况。
+
+## _initiate_track()
+
+- 作用​：将未匹配的检测初始化为新轨迹。
+- ​ID生成​：包含日期和自增ID，避免重复。
 
 
 

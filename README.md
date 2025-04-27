@@ -49,6 +49,8 @@ The installation instructions are as follows.
 .
 ├── LICENSE
 ├── README.md
+├── app
+│   └── videocapture.py
 ├── deep_sort_realtime
 │   ├── README.md
 │   ├── __init__.py
@@ -58,10 +60,9 @@ The installation instructions are as follows.
 │   ├── embedder
 │   └── utils
 ├── models
+│   ├── download_yolov10_wts.sh
 │   ├── yolov10m.pt
 │   └── yolov10n.pt
-├── modules
-│   └── videocapture.py
 └── ultralytics
     ├── __init__.py
     ├── __pycache__
@@ -76,3 +77,7 @@ The installation instructions are as follows.
     ├── trackers
     └── utils
  ```
+
+ ## Usage
+
+Enter the app directory by `cd app` and execute instructions `python videocapture.py`.
