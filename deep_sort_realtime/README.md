@@ -1,6 +1,7 @@
 
 
 ### 参数配置和初始化逻辑
+
 ```
 def __init__(self, max_iou_distance=0.7, max_age=30, ..., polygon=False, today=None):
 ```
@@ -28,6 +29,11 @@ def __init__(self, max_iou_distance=0.7, max_age=30, ..., polygon=False, today=N
 - ​注意事项:
   - 使用CLIP模型需提供权重路径 embedder_wts。
   - 多边形检测需设置 polygon=True。
+
+默认初始化`NearestNeighborDistanceMetric`模块为 `cosine` 模式；
+
+
+
 
 ### 处理检测结果，更新跟踪器状态
 

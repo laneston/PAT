@@ -9,9 +9,9 @@ class TrackState:
 
     """
 
-    Tentative = 1
-    Confirmed = 2
-    Deleted = 3
+    Tentative = 1  # 初始暂定状态，需积累足够匹配次数
+    Confirmed = 2  # 确认状态，持续跟踪中
+    Deleted = 3  # 删除状态，需从跟踪列表移除
 
 
 class Track:
@@ -44,7 +44,7 @@ class Track:
         Classname of matched detection
     det_conf : Optional float
         Confidence associated with matched detection
-    instance_mask : Optional 
+    instance_mask : Optional
         Instance mask associated with matched detection
     others : Optional any
         Any supplementary fields related to matched detection
@@ -85,29 +85,29 @@ class Track:
         instance_mask=None,
         others=None,
     ):
-        self.mean = mean
-        self.covariance = covariance
-        self.track_id = track_id
-        self.hits = 1
-        self.age = 1
-        self.time_since_update = 0
-
-        self.state = TrackState.Tentative
-        self.features = []
-        self.latest_feature = None
+        # 状态变量
+        self.mean = mean  # 卡尔曼滤波的均值向量（中心坐标x,y，宽高比a，高度h）
+        self.covariance = covariance  # 卡尔曼滤波的协方差矩阵
+        self.track_id = track_id  # 唯一ID
+        self.hits = 1  # 成功匹配的次数
+        self.age = 1  # 轨迹存在的总帧数
+        self.time_since_update = 0  # 距上次更新的帧数
+        # 状态管理，可能内存增长，需限制长度或使用滑动窗口
+        self.state = TrackState.Tentative  # 初始为暂定状态
+        self.features = []  # 特征缓存（用于外观模型匹配）
+        self.latest_feature = None  # 最新特征
         if feature is not None:
             self.features.append(feature)
             self.latest_feature = feature
-
-
-        self._n_init = n_init
-        self._max_age = max_age
-
-        self.original_ltwh = original_ltwh
-        self.det_class = det_class
-        self.det_conf = det_conf
-        self.instance_mask = instance_mask
-        self.others = others
+        # 参数配置，需根据场景调整，如高帧率场景可增大max_age
+        self._n_init = n_init  # 确认所需连续匹配次数
+        self._max_age = max_age  # 最大允许失配帧数
+        # 关联的检测信息
+        self.original_ltwh = original_ltwh  # 原始检测框坐标（左上宽高）
+        self.det_class = det_class  # 检测类别
+        self.det_conf = det_conf  # 检测置信度
+        self.instance_mask = instance_mask  # 实例分割掩码
+        self.others = others  # 其他自定义数据
 
     def to_tlwh(self, orig=False, orig_strict=False):
         """Get current position in bounding box format `(top left x, top left y,
@@ -129,8 +129,8 @@ class Track:
         ------
         orig : bool
             To use original detection (True) or KF predicted (False). Only works for original dets that are horizontal BBs.
-        orig_strict: bool 
-            Only relevant when orig is True. If orig_strict is True, it ONLY outputs original bbs and will not output kalman mean even if original bb is not available. 
+        orig_strict: bool
+            Only relevant when orig is True. If orig_strict is True, it ONLY outputs original bbs and will not output kalman mean even if original bb is not available.
 
         Returns
         -------
@@ -197,11 +197,11 @@ class Track:
         return self.det_class
 
     def get_instance_mask(self):
-        '''
+        """
         Get instance mask associated with detection. Will be None is there are no associated detection this round
-        '''
+        """
         return self.instance_mask
-    
+
     def get_det_supplementary(self):
         """
         Get supplementary info associated with the detection. Will be None is there are no associated detection this round.
@@ -209,9 +209,9 @@ class Track:
         return self.others
 
     def get_feature(self):
-        '''
+        """
         Get latest appearance feature
-        '''
+        """
         return self.latest_feature
 
     def predict(self, kf):

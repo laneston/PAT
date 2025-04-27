@@ -3,6 +3,7 @@
 
 
 
+
 # 余弦距离计算公式变量详解
 
 ## 公式定义:
@@ -349,6 +350,122 @@ def distance(self, features, targets):
   - targets: 需要计算距离的目标ID列表。
 - ​返回​：成本矩阵（形状len(targets)×len(features)），元素(i,j)表示目标targets[i]与检测features[j]的最小距离。
 - ​作用​：生成关联成本矩阵，用于匈牙利算法等匹配方法。
+
+
+
+# Track 类
+
+## TrackState 状态
+
+```
+    Tentative = 1  # 初始暂定状态，需积累足够匹配次数
+    Confirmed = 2  # 确认状态，持续跟踪中
+    Deleted = 3  # 删除状态，需从跟踪列表移除
+```
+
+## 初始化
+
+```
+        # 状态变量
+        self.mean = mean  # 卡尔曼滤波的均值向量（中心坐标x,y，宽高比a，高度h）
+        self.covariance = covariance  # 卡尔曼滤波的协方差矩阵
+        self.track_id = track_id  # 唯一ID
+        self.hits = 1  # 成功匹配的次数
+        self.age = 1  # 轨迹存在的总帧数
+        self.time_since_update = 0  # 距上次更新的帧数
+        # 状态管理，可能内存增长，需限制长度或使用滑动窗口
+        self.state = TrackState.Tentative  # 初始为暂定状态
+        self.features = []  # 特征缓存（用于外观模型匹配）
+        self.latest_feature = None  # 最新特征
+        if feature is not None:
+            self.features.append(feature)
+            self.latest_feature = feature
+        # 参数配置，需根据场景调整，如高帧率场景可增大max_age
+        self._n_init = n_init  # 确认所需连续匹配次数
+        self._max_age = max_age  # 最大允许失配帧数
+        # 关联的检测信息
+        self.original_ltwh = original_ltwh  # 原始检测框坐标（左上宽高）
+        self.det_class = det_class  # 检测类别
+        self.det_conf = det_conf  # 检测置信度
+        self.instance_mask = instance_mask  # 实例分割掩码
+        self.others = others  # 其他自定义数据
+```
+
+
+## 坐标转换方法
+
+```
+to_ltwh(orig=False, orig_strict=False)
+```
+
+- ​作用​：将状态均值或原始检测框转为(x,y,w,h)格式。
+- ​参数​：
+  - orig=True：优先返回原始检测框（若无且orig_strict=True则返回None）。
+  - orig_strict=True：严格模式，仅返回原始框。
+- ​注意​：原始检测框可能在预测后被清空，需在update后立即使用。
+
+```
+to_ltrb(orig=False)
+```
+
+- ​作用​：将边界框转为(x_min,y_min,x_max,y_max)。
+- ​依赖​：先调用to_ltwh获取基础坐标。
+
+## 检测信息获取方法
+
+```
+def get_det_conf(self):    # 当前关联检测的置信度（可能为None）
+def get_det_class(self):   # 检测类别（持久化，即使无当前检测）
+def get_instance_mask(self):  # 实例掩码（可能为None）
+```
+
+## 预测与更新
+
+```
+predict(kf)
+```
+
+- 作用​：卡尔曼滤波预测状态，并更新存活时间。
+- ​注意​：需传入与卡尔曼滤波器兼容的kf对象。
+
+```
+update(kf, detection)
+```
+
+- ​作用​：用新检测更新状态，并记录特征。
+- 注意​：detection需包含feature、ltwh等属性。
+
+
+## 状态管理
+
+```
+mark_missed()
+```
+
+逻辑​：未匹配时标记，Tentative轨迹直接删除，Confirmed轨迹超时删除。
+
+状态检查方法
+
+作用​：判断当前状态，用于外部管理跟踪列表。
+
+## 使用注意事项
+
+1. ​坐标转换​：
+   - 确保to_ltwh和to_ltrb的输入输出与检测器/可视化工具兼容。
+   - 使用orig=True时需确认当前帧是否有关联检测（original_ltwh非空）。
+2. ​特征管理​：
+   - 大量轨迹时features可能占用内存，需定期清理或限制长度。
+3. ​卡尔曼滤波器兼容性​：
+   - predict和update需与具体卡尔曼实现接口一致。
+4. 状态生命周期​：
+   - n_init和max_age需根据场景调整（如摄像头帧率、目标运动速度）。
+5. 多线程/进程安全​：
+   - 若在多线程环境中修改轨迹状态，需加锁保护。
+6. ​检测信息时效性​：
+   - det_conf、instance_mask等仅在update后有效，predict后会被重置。
+7. ​自定义数据​：
+   - others字段可存储任意数据，但需注意序列化和访问安全。
+
 
 
 
