@@ -518,6 +518,117 @@ class Tracker:
 - ​ID生成​：包含日期和自增ID，避免重复。
 
 
+# 卡尔曼滤波器
+
+```
+chi2inv95 = {1: 3.8415, 2: 5.9915, ..., 9: 16.919}
+```
+
+- ​作用​：存储卡方分布在 0.95 置信水平下的临界值，用于计算马氏距离的门控阈值。
+- ​用途​：判断测量值是否属于合理范围（例如，chi2inv95[4] 对应 4 自由度的阈值）。
+
+## 初始化 __init__
+
+```
+def __init__(self):
+    ndim, dt = 4, 1.0
+    self._motion_mat = np.eye(2 * ndim, 2 * ndim)
+    for i in range(ndim):
+        self._motion_mat[i, ndim + i] = dt
+    self._update_mat = np.eye(ndim, 2 * ndim)
+    self._std_weight_position = 1.0 / 20
+    self._std_weight_velocity = 1.0 / 160
+```
+
+- ​作用​：
+  - _motion_mat：状态转移矩阵（8x8），实现恒定速度模型（位置 += 速度 × 时间间隔 dt）。
+  - _update_mat：观测矩阵（4x8），将 8 维状态映射到 4 维观测空间。
+  - _std_weight_*：控制过程噪声和观测噪声的权重。
+- ​注意事项​：dt 固定为 1.0，若实际帧率变化需调整。
+
+## 初始化跟踪 initiate
+
+```
+def initiate(self, measurement):
+    mean_pos = measurement
+    mean_vel = np.zeros_like(mean_pos)
+    mean = np.r_[mean_pos, mean_vel]
+    std = [2 * self._std_weight_position * h, ...]
+    covariance = np.diag(np.square(std))
+    return mean, covariance
+```
+- ​作用​：根据测量值初始化跟踪器的均值和协方差。
+- ​输入​：measurement 为 (x, y, a, h)。
+- ​输出​：8 维均值向量和 8x8 协方差矩阵。
+- ​注意事项​：速度初始化为 0，协方差高度依赖 h。
+
+## 预测 predict
+
+```
+def predict(self, mean, covariance):
+    std_pos = [...]
+    std_vel = [...]
+    motion_cov = np.diag(np.square(np.r_[std_pos, std_vel]))
+    mean = np.dot(self._motion_mat, mean)
+    covariance = FPF^T + motion_cov
+    return mean, covariance
+```
+
+- ​作用​：预测下一时刻的状态均值和协方差。
+- ​输入​：上一时刻的 mean 和 covariance。
+- ​输出​：预测后的状态分布。
+- ​注意事项​：过程噪声协方差动态依赖于当前状态的 h。
+
+## 投影到观测空间 project
+
+```
+def project(self, mean, covariance):
+    std = [...]
+    innovation_cov = np.diag(np.square(std))
+    mean = Hx
+    covariance = HPH^T + innovation_cov
+    return mean, covariance
+```
+
+- ​作用​：将状态分布投影到 4 维观测空间，并添加观测噪声。
+- ​输出​：预测的观测均值和协方差。
+- ​用途​：用于计算门控距离或更新步骤。
+
+## 更新 update
+
+```
+def update(self, mean, covariance, measurement):
+    projected_mean, projected_cov = self.project(...)
+    kalman_gain = ...  # 使用 Cholesky 分解求解
+    innovation = measurement - projected_mean
+    new_mean = mean + K * innovation
+    new_covariance = covariance - KSK^T
+    return new_mean, new_covariance
+```
+
+- ​作用​：用测量值修正预测后的状态。
+- ​输入​：预测的 mean、covariance 和实际测量值 measurement。
+- ​输出​：更新后的状态分布。
+- ​注意事项​：依赖数值稳定的 Cholesky 分解。
+
+## 门控距离 gating_distance
+
+```
+def gating_distance(self, ...):
+    projected_mean, projected_cov = self.project(...)
+    cholesky_factor = np.linalg.cholesky(projected_cov)
+    z = solve(cholesky_factor, d.T)
+    squared_maha = sum(z * z)
+    return squared_maha
+```
+
+- 作用​：计算测量值与状态分布的马氏距离平方。
+- ​输入​：状态分布和多个测量值。
+- ​输出​：各测量值的马氏距离平方（需与 chi2inv95 比较）。
+- ​注意事项​：若 only_position=True，仅计算中心位置的距离（自由度 2）。
+
+
+
 
 
 
