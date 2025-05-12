@@ -37,7 +37,14 @@ while cap.isOpened():
     if not ret:
         break
 
-    # YOLOv10检测
+    """
+    YOLOv10检测
+    Results 对象属性​：
+    **.boxes**: 包含检测框信息的子对象。
+    **.boxes.xyxy**: 所有检测框的坐标，格式为 [[x1, y1, x2, y2], ...]（Tensor 类型）。
+    **.boxes.conf**: 每个检测框的置信度（Tensor 类型）。
+    **.boxes.cls**: 每个检测框的类别 ID（Tensor 类型）。
+    """
     results = model(frame, verbose=False)
 
     # 准备检测结果
